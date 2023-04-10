@@ -117,12 +117,10 @@ def words_to_erase(words_first_model, words_second_model):
     for i in range(len(words_first_model)):
         del words_first_model[i]['entity']
         del words_first_model[i]['score']
-        del words_first_model[i]['index']
     
     for i in range(len(words_second_model)):
         del words_second_model[i]['entity']
         del words_second_model[i]['score']
-        del words_second_model[i]['index']
     
     final_list = compare_lists(words_first_model, words_second_model)
     return(final_list)
