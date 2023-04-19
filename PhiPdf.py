@@ -1,12 +1,8 @@
 #libraries
 from pdf2image import convert_from_path
-import cv2, pytesseract, re, img2pdf, os, glob, philter_lite
+import cv2, pytesseract, re, img2pdf, os, glob
 from PIL import Image 
-from transformers import AutoTokenizer, AutoModel, pipeline
-from copy import deepcopy
-
-
-from numpy import save, load, asarray
+from transformers import pipeline
 
 Image.MAX_IMAGE_PIXELS = 100000000000
 
@@ -23,31 +19,21 @@ def make_pics(filename):
 		i = i+1
 	return i  
 
-
-#get ocr to create data, data is with dictionary to make faster
 def ocr_test(image):
 	stuff = ''
 	pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
-	# convert the image to black and white for better OCR
-	#gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 	data = pytesseract.image_to_data(image, output_type = 'dict', config='--psm 6')
-	#write string into a text file
 	return data
 
 def filter_spaces(data):
 	k = len(data['level']) 
 	x = 0 
 	while x !=k:
-		#print("ITERATION:", x)
 		try:
 			if data['text'][x] != '':
-				#print("not erasing: ", data['text'][x])
 				x +=1
-				#print("next: ", data['text'][x])
 			else:
-				#print("erasing: ", data['text'][x])
 				del data['text'][x]
-				#print("next: ", data['text'][x])
 				del data['block_num'][x]
 				del data['par_num'][x]
 				del data['line_num'][x]
@@ -64,31 +50,24 @@ def filter_spaces(data):
 
 #remove the word from the jpg
 def blur_func(imagename, data, to_erase):
-
 	image = cv2.imread(imagename)
-
-
 	sentence = ' '.join(data['text']).upper()
 	sentence_words = sentence.split()
+	counter = 0 
 	
 	for z in range(len(to_erase)):
 		if to_erase[z]['word'].upper() in sentence:
 			for i, word in enumerate(sentence_words):
-				if to_erase[z]['word'].upper() in word.upper():
-					print("THUS IS WORD: ", to_erase[z]['word'])
-					print("THUS IS MATCH: ", word)
-					print("THUS IS INDEX MATCH WORD: ", data['text'][i])
-					print("________________")
+				if word.startswith(to_erase[z]['word'].upper()):
+					counter += 1
 					(x, y, w, h) = (data['left'][i], data['top'][i], data['width'][i], data['height'][i])
 					cv2.rectangle(image, (x, y), (x + w, y + h), (255, 255, 255), -1)
 					sentence_words[i] = "@@@@"
 					sentence = str()
 					sentence = ' '.join(sentence_words)
 					break
-			
-
-
-
+	
+	print("words erased: ", counter)
 	return image
 
 #convert back to pdf 
@@ -97,8 +76,10 @@ def make_pdf(imagepath):
 	with open(imagepath,'wb') as f:
 		f.write(img2pdf.convert(images))
 
+
 #remove jpg from the directory 
 def remove_jpgs():
+
 	filestotal = glob.glob('*.jpg')
 	for file in filestotal:
 		os.remove(file)
@@ -120,7 +101,7 @@ def model2(words):
 
 def compare_lists(words_first_model, words_second_model):
 	i = j = 1
-	while i != len(words_first_model):
+	while not i >= len(words_first_model):
 		if words_first_model[i]['start'] == words_first_model[i-1]['end']:
 			words_first_model[i]['word'] = (words_first_model[i-1]['word'] + words_first_model[i]['word']).replace("#", "")
 			words_first_model[i]['start'] = words_first_model[i-1]['start']
@@ -132,7 +113,7 @@ def compare_lists(words_first_model, words_second_model):
 		else:
 			i +=1
 
-	while j != len(words_second_model):
+	while not j >= len(words_second_model):
 		if words_second_model[j]['start'] == words_second_model[j-1]['end']:
 			words_second_model[j]['word'] = (words_second_model[j-1]['word'] + words_second_model[j]['word']).replace("#", "")
 			words_second_model[j]['start'] = words_second_model[j-1]['start']
@@ -148,14 +129,8 @@ def compare_lists(words_first_model, words_second_model):
 		for j in range(len(words_second_model)):
 			if (words_second_model[j]['word'] != words_first_model[i]['word']) and j==len(words_first_model):
 				words_first_model.append(words_second_model[j])
-
-	
-	print(words_first_model)
 	
 	return words_first_model
-
-   
-
 
 def words_to_erase(words_first_model, words_second_model):
 	final_list = []
@@ -178,7 +153,7 @@ def main(fileinput, fileoutput):
 		i = 1
 		#create pictures and get the counter for them as jpgtotal
 		jpgtotal = make_pics(filename)
-		print("jpgtotal: ", jpgtotal-1)
+		print("\n\njpgtotal: ", jpgtotal-1)
 		while i != jpgtotal:
 			#get data from the first page, put in a loop later, for now hard coded
 			page_loc = 'Page_' + str(i) + '.jpg'
@@ -196,9 +171,7 @@ def main(fileinput, fileoutput):
 
 			#comp_str = string_erased(final_list, data)
 			
-			image = blur_func(page_loc, data, final_list) 
-			
-
+			image = blur_func(page_loc, data, final_list)
 
 			#save the new image with the old name so it replaces
 			cv2.imwrite(page_loc, image)
@@ -206,10 +179,10 @@ def main(fileinput, fileoutput):
 		#remove the images from directory
 
 		#replace the input directory in the name with the output
-		filename = re.sub('input', 'output', filename)
+		filenamed = filename.replace(fileinput[:len(fileinput)-1], fileoutput[:len(fileoutput)-1])
 		#combine all the jpgs and output the pdf in the output folder
-		print("filename:", filename)
-		make_pdf(filename)
+		print("filename:", filenamed)
+		make_pdf(filenamed)
 		#remove the jpgs
 		remove_jpgs()
 
