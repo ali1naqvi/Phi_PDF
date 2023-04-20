@@ -11,6 +11,6 @@
 2. The pdfs that are to be used should go inside the input folder
 3. run PhiPdf.py
 
-Sample inputs are given in the input folder with fake patient information. 
+Sample inputs are given in the input folder with fake patient information (created using CHATGPT). 
 
 
